@@ -4,12 +4,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy file .csproj và restore dependencies
-COPY backend/PostManager.API/PostManager.API/PostManager.API.csproj ./
-RUN dotnet restore "PostManager.API.csproj"
+# Copy project file và restore
+COPY PostManager.API.csproj ./
+RUN dotnet restore
 
 # Copy toàn bộ source code
-COPY backend/PostManager.API/PostManager.API/ ./
+COPY . .
 
 # Build và publish
 RUN dotnet publish -c Release -o /app/publish
