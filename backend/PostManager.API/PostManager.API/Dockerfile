@@ -4,14 +4,17 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy file .csproj vào container
-COPY backend/PostManager.API/PostManager.API/PostManager.API.csproj ./
+# Copy csproj trước để cache restore
+COPY backend/PostManager.API/PostManager.API/PostManager.API.csproj ./PostManager.API.csproj
 RUN dotnet restore "PostManager.API.csproj"
 
-# Copy toàn bộ source code vào container
+# Copy tất cả source code (trừ file Dockerfile)
 COPY backend/PostManager.API/PostManager.API/ ./
 
-# Build và publish
+# Xóa Dockerfile bị copy nhầm (ngăn dotnet publish đọc phải)
+RUN rm -f Dockerfile
+
+# Build và publish ra thư mục /app/publish
 RUN dotnet publish -c Release -o /app/publish
 
 # ===============================

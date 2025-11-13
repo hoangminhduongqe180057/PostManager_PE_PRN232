@@ -5,3 +5,5 @@ obj/
 .gitignore
 *.md
 frontend/
+Dockerfile
+Dockerfile.*
