@@ -13,14 +13,30 @@ namespace PostManager.API.Controllers
         public PostsController(AppDbContext context) => _context = context;
 
         [HttpGet]
-        public async Task<IActionResult> GetAll(string? search, string? sort)
+        public async Task<IActionResult> GetAll(
+            string? search, string? sort,
+            int page = 1, int pageSize = 4)
         {
             var query = _context.Posts.AsQueryable();
+
+            // Filter
             if (!string.IsNullOrWhiteSpace(search))
                 query = query.Where(p => p.Name.ToLower().Contains(search.ToLower()));
+
+            // Sort
             if (sort == "asc") query = query.OrderBy(p => p.Name);
             else if (sort == "desc") query = query.OrderByDescending(p => p.Name);
-            return Ok(await query.ToListAsync());
+
+            // Total count (for pagination)
+            var total = await query.CountAsync();
+
+            // Apply paging
+            var posts = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return Ok(new { total, posts });
         }
 
         [HttpGet("{id}")]
