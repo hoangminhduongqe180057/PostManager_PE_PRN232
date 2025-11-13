@@ -1,5 +1,7 @@
+using CloudinaryDotNet;
 using Microsoft.EntityFrameworkCore;
 using PostManager.API.Data;
+using PostManager.API.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,18 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddCors(opt =>
 {
     opt.AddPolicy("AllowAll", p => p.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+});
+
+// Add Cloudinary config
+builder.Services.Configure<CloudinarySettings>(
+    builder.Configuration.GetSection("CloudinarySettings")
+);
+
+builder.Services.AddSingleton(provider =>
+{
+    var settings = builder.Configuration.GetSection("CloudinarySettings").Get<CloudinarySettings>();
+    var account = new Account(settings.CloudName, settings.ApiKey, settings.ApiSecret);
+    return new Cloudinary(account);
 });
 
 var app = builder.Build();

@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using CloudinaryDotNet;
+using CloudinaryDotNet.Actions;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PostManager.API.Data;
 using PostManager.API.Models;
@@ -10,7 +12,13 @@ namespace PostManager.API.Controllers
     public class PostsController : ControllerBase
     {
         private readonly AppDbContext _context;
-        public PostsController(AppDbContext context) => _context = context;
+        private readonly Cloudinary _cloudinary;
+
+        public PostsController(AppDbContext context, Cloudinary cloudinary)
+        {
+            _context = context;
+            _cloudinary = cloudinary;
+        }
 
         [HttpGet]
         public async Task<IActionResult> GetAll(
@@ -49,22 +57,95 @@ namespace PostManager.API.Controllers
             return Ok(post);
         }
 
+        //[HttpPost]
+        //public async Task<IActionResult> Create(Post post)
+        //{
+        //    _context.Posts.Add(post);
+        //    await _context.SaveChangesAsync();
+        //    return Ok(post);
+        //}
+
         [HttpPost]
-        public async Task<IActionResult> Create(Post post)
+        [RequestSizeLimit(10_000_000)] // giới hạn 10MB
+        public async Task<IActionResult> Create([FromForm] string name, [FromForm] string description, IFormFile? imageFile, [FromForm] string? imageUrl)
         {
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(description))
+                return BadRequest("Name and description are required.");
+
+            string finalImageUrl;
+
+            // Nếu user upload file thật → upload lên Cloudinary
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                var uploadParams = new ImageUploadParams
+                {
+                    File = new FileDescription(imageFile.FileName, imageFile.OpenReadStream()),
+                    Folder = "postmanager_uploads"
+                };
+
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+                finalImageUrl = uploadResult.SecureUrl?.AbsoluteUri ?? "";
+            }
+            // Nếu user nhập link hợp lệ
+            else if (!string.IsNullOrWhiteSpace(imageUrl))
+            {
+                finalImageUrl = imageUrl;
+            }
+            // Nếu không chọn ảnh → dùng default
+            else
+            {
+                finalImageUrl = "https://placehold.co/600x400?text=No+Image+Available";
+            }
+
+            var post = new Post
+            {
+                Name = name,
+                Description = description,
+                ImageUrl = finalImageUrl,
+                CreatedAt = DateTime.UtcNow
+            };
+
             _context.Posts.Add(post);
             await _context.SaveChangesAsync();
             return Ok(post);
         }
 
+        //[HttpPut("{id}")]
+        //public async Task<IActionResult> Update(int id, Post post)
+        //{
+        //    var existing = await _context.Posts.FindAsync(id);
+        //    if (existing == null) return NotFound();
+        //    existing.Name = post.Name;
+        //    existing.Description = post.Description;
+        //    existing.ImageUrl = post.ImageUrl;
+        //    await _context.SaveChangesAsync();
+        //    return Ok(existing);
+        //}
+
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, Post post)
+        public async Task<IActionResult> Update(int id, [FromForm] string name, [FromForm] string description, IFormFile? imageFile, [FromForm] string? imageUrl)
         {
             var existing = await _context.Posts.FindAsync(id);
             if (existing == null) return NotFound();
-            existing.Name = post.Name;
-            existing.Description = post.Description;
-            existing.ImageUrl = post.ImageUrl;
+
+            existing.Name = name;
+            existing.Description = description;
+
+            if (imageFile != null && imageFile.Length > 0)
+            {
+                var uploadParams = new ImageUploadParams
+                {
+                    File = new FileDescription(imageFile.FileName, imageFile.OpenReadStream()),
+                    Folder = "postmanager_uploads"
+                };
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+                existing.ImageUrl = uploadResult.SecureUrl?.AbsoluteUri ?? existing.ImageUrl;
+            }
+            else if (!string.IsNullOrWhiteSpace(imageUrl))
+            {
+                existing.ImageUrl = imageUrl;
+            }
+
             await _context.SaveChangesAsync();
             return Ok(existing);
         }
